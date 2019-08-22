@@ -12,6 +12,7 @@ require (
 	github.com/kr/pty v1.1.8 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/soheilhy/cmux v0.1.4
+	github.com/spf13/viper v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 // indirect
 	golang.org/x/mobile v0.0.0-20190814143026-e8b3e6111d02 // indirect
 	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7 // indirect
@@ -19,6 +20,6 @@ require (
 	golang.org/x/tools v0.0.0-20190820033707-85edb9ef3283 // indirect
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
 	google.golang.org/grpc v1.23.0
-	gopkg.in/yaml.v2 v2.2.2 // indirect
+	gopkg.in/validator.v2 v2.0.0-20180514200540-135c24b11c19 // indirect
 	honnef.co/go/tools v0.0.1-2019.2.2 // indirect
 )
