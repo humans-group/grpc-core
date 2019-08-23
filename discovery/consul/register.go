@@ -2,6 +2,7 @@ package consul
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -17,12 +18,22 @@ type Service struct {
 
 // populate with ld flags
 var (
-	env  string
-	ip   string
-	port int
+	env     string
+	ip      string
+	port    string
+	portInt int
 )
 
+func init() {
+	var err error
+	portInt, err = strconv.Atoi(port)
+	if err != nil {
+		panic(fmt.Sprintf("failed to convert port %s string to int: %v", port, err))
+	}
+}
+
 func RegisterService(cfg Config) {
+	grpclog.Infof("consul envs %v %v %v", env, ip, port)
 
 	consulConfig := api.DefaultConfig()
 	consulConfig.Address = cfg.Endpoint
@@ -39,7 +50,7 @@ func RegisterService(cfg Config) {
 		ID:      fmt.Sprintf("%v-%v-%v", cfg.Name, ip, port),
 		Name:    cfg.Name,
 		Tags:    []string{env},
-		Port:    port,
+		Port:    portInt,
 		Address: ip,
 		Check: &api.AgentServiceCheck{
 			// health check interval
