@@ -3,17 +3,20 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_opentracing "github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/mkorolyov/core/config"
 	"github.com/mkorolyov/core/logger"
@@ -34,6 +37,7 @@ type Registerer interface {
 type Server struct {
 	services []Registerer
 	cfg      Config
+	grpcProxyMux *runtime.ServeMux
 	exitFunc func(code int)
 	ctx      context.Context
 	log      *zap.Logger
@@ -92,17 +96,17 @@ func (s *Server) Serve(ctx context.Context) {
 				grpc_zap.WithLevels(codeToLevel),
 			}...),
 			grpc_zap.PayloadUnaryServerInterceptor(s.log, s.payloadLoggingDecider),
-			grpc_opentracing.UnaryServerInterceptor()),
+			grpc_opentracing.UnaryServerInterceptor(),
+			grpc_prometheus.UnaryServerInterceptor,
+		),
 	)
 
-	opts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-	mux := runtime.NewServeMux()
+	grpc_prometheus.EnableHandlingTimeHistogram()
 
+	s.grpcProxyMux = runtime.NewServeMux()
 	for _, se := range s.services {
 		se.GRPCRegisterer()(grpcS)
-		if err := se.HTTPRegisterer()(s.ctx, mux, s.cfg.Endpoint, opts); err != nil {
+		if err := se.HTTPRegisterer()(s.ctx, s.grpcProxyMux, s.cfg.Endpoint, []grpc.DialOption{grpc.WithInsecure()}); err != nil {
 			s.log.Sugar().Panicf("failed to register http handler for service %T: %v", s, err)
 		}
 	}
@@ -114,7 +118,7 @@ func (s *Server) Serve(ctx context.Context) {
 		}
 	}()
 
-	httpS := &http.Server{Handler: mux}
+	httpS := &http.Server{Handler: s}
 	go func() {
 		if err := httpS.Serve(httpL); err != nil {
 			//TODO not exit on ErrServerClosed, it is successful watchShutdown
@@ -136,6 +140,16 @@ func (s *Server) Serve(ctx context.Context) {
 	}
 
 	s.log.Sugar().Info("microservice gracefully stopped")
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	if strings.HasPrefix(path, "/metrics") {
+		promhttp.Handler().ServeHTTP(w, r)
+		return
+	}
+
+	s.grpcProxyMux.ServeHTTP(w, r)
 }
 
 func (s *Server) AddExitFunc(fn func(code int)) {
