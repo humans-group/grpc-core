@@ -57,11 +57,13 @@ func New(loader config.Loader, services ...Registerer) *Server {
 	if err != nil {
 		s.log.Sugar().Errorf("failed to proper init jaeger tracing %v", err)
 	}
-	s.AddExitFunc(func(_ int) {
-		if err := tracerCloser.Close(); err != nil {
-			s.log.Sugar().Errorf("failed to close jaeger client: %v", err)
-		}
-	})
+	if tracerCloser != nil {
+		s.AddExitFunc(func(_ int) {
+			if err := tracerCloser.Close(); err != nil {
+				s.log.Sugar().Errorf("failed to close jaeger client: %v", err)
+			}
+		})
+	}
 
 	return s
 }

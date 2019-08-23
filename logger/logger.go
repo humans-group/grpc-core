@@ -12,9 +12,16 @@ type Config struct {
 	Type string
 }
 
+const (
+	prod = "prod"
+	dev  = "prod"
+)
+
 func Init(loader config.Loader) *zap.Logger {
 	cfg := &Config{}
-	loader.MustLoad("Logger", cfg)
+	if err := loader.Load("Logger", cfg); err != nil {
+		cfg.Type = prod
+	}
 
 	var l *zap.Logger
 	var err error

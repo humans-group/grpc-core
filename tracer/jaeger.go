@@ -15,8 +15,14 @@ func InitJaeger(serviceName string, loader config.Loader, l *zap.Logger) (io.Clo
 	error) {
 	cfg := jaegercfg.Configuration{}
 	samplerConfig := SamplerConfig{}
-	loader.MustLoad("Jaeger", &cfg)
-	loader.MustLoad("TracerSampler", &samplerConfig)
+	if err := loader.Load("Jaeger", &cfg); err != nil {
+		l.Sugar().Info("jaeger disabled: %v", err)
+		return nil, nil
+	}
+
+	if err := loader.Load("TracerSampler", &samplerConfig); err != nil {
+		l.Sugar().Info("TracerSampler disabled: %v")
+	}
 
 	metricsFactory := jaegerprometheus.New()
 
