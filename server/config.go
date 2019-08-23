@@ -1,7 +1,7 @@
 package server
 
 type Config struct {
-	Name string
+	Name        string
 	Endpoint    string
 	LogPayloads *bool
 }

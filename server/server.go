@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/mkorolyov/core/discovery/consul"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"log"
 	"net"
 	"net/http"
@@ -35,12 +37,13 @@ type Registerer interface {
 }
 
 type Server struct {
-	services []Registerer
-	cfg      Config
+	services     []Registerer
+	cfg          Config
+	consulCfg    consul.Config
 	grpcProxyMux *runtime.ServeMux
-	exitFunc func(code int)
-	ctx      context.Context
-	log      *zap.Logger
+	exitFunc     func(code int)
+	ctx          context.Context
+	log          *zap.Logger
 }
 
 func New(loader config.Loader, services ...Registerer) *Server {
@@ -50,6 +53,7 @@ func New(loader config.Loader, services ...Registerer) *Server {
 	}
 
 	loader.MustLoad("Server", &s.cfg)
+	loader.MustLoad("Consul", &s.consulCfg)
 
 	s.AddExitFunc(func(_ int) {
 		if err := s.log.Sync(); err != nil {
@@ -131,6 +135,9 @@ func (s *Server) Serve(ctx context.Context) {
 			s.log.Sugar().Errorf("cmux server error: %v", err)
 		}
 	}()
+
+	grpc_health_v1.RegisterHealthServer(grpcS, &HealthCheck{})
+	consul.RegisterService(s.consulCfg)
 
 	<-s.ctx.Done()
 	grpcS.GracefulStop()
