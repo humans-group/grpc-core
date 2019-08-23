@@ -54,6 +54,7 @@ func New(loader config.Loader, services ...Registerer) *Server {
 
 	loader.MustLoad("Server", &s.cfg)
 	loader.MustLoad("Consul", &s.consulCfg)
+	s.consulCfg.Name = s.cfg.Name
 
 	s.AddExitFunc(func(_ int) {
 		if err := s.log.Sync(); err != nil {

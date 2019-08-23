@@ -67,5 +67,4 @@ func RegisterService(cfg Config) {
 		grpclog.Fatalf("Service Register error: %v", err)
 		return
 	}
-
 }
