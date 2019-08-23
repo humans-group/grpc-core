@@ -16,7 +16,7 @@ func InitJaeger(serviceName string, loader config.Loader, l *zap.Logger) (io.Clo
 	cfg := jaegercfg.Configuration{}
 	samplerConfig := SamplerConfig{}
 	if err := loader.Load("Jaeger", &cfg); err != nil {
-		l.Sugar().Info("jaeger disabled: %v", err)
+		l.Sugar().Infof("jaeger disabled: %v", err)
 		return nil, nil
 	}
 
