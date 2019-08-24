@@ -115,6 +115,7 @@ func (s *Server) Serve(ctx context.Context) {
 			s.log.Sugar().Panicf("failed to register http handler for service %T: %v", s, err)
 		}
 	}
+	grpc_health_v1.RegisterHealthServer(grpcS, &HealthCheck{})
 
 	//TODO collect errors from goroutines
 	go func() {
@@ -137,7 +138,6 @@ func (s *Server) Serve(ctx context.Context) {
 		}
 	}()
 
-	grpc_health_v1.RegisterHealthServer(grpcS, &HealthCheck{})
 	consul.RegisterService(s.consulCfg)
 
 	<-s.ctx.Done()
