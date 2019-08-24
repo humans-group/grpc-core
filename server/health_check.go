@@ -33,12 +33,9 @@ func (h *HealthCheck) Watch(req *grpc_health_v1.HealthCheckRequest, w grpc_healt
 	return nil
 }
 
-func (h *HealthCheck) shutdown() error {
+func (h *HealthCheck) shutdown() {
 	if err := h.watchServer.Send(&grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.
 		HealthCheckResponse_NOT_SERVING}); err != nil {
 		grpclog.Errorf("failed to send NOT_SERVING to Health Check Watcher")
-		return err
 	}
-
-	return nil
 }
