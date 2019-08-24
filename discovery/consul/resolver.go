@@ -47,7 +47,7 @@ func (cb *consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, o
 	}
 
 	cr := &consulResolver{
-		address:              fmt.Sprintf("%s%s", host, port),
+		address:              fmt.Sprintf("%s:%s", host, port),
 		name:                 name,
 		cc:                   cc,
 		disableServiceConfig: opts.DisableServiceConfig,
