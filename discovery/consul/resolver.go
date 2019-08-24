@@ -41,15 +41,9 @@ func NewBuilder() resolver.Builder {
 }
 
 func (cb *consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
-	host, port, name, err := parseTarget(fmt.Sprintf("%s/%s", target.Authority, target.Endpoint))
-	grpclog.Infof("consul host %s port %s name %s target %+v", target)
-	if err != nil {
-		return nil, err
-	}
-
 	cr := &consulResolver{
-		address:              fmt.Sprintf("%s:%s", host, port),
-		name:                 name,
+		address:              target.Endpoint,
+		name:                 target.Authority,
 		cc:                   cc,
 		disableServiceConfig: opts.DisableServiceConfig,
 		lastIndex:            0,
@@ -98,23 +92,4 @@ func (cr *consulResolver) ResolveNow(opt resolver.ResolveNowOption) {
 }
 
 func (cr *consulResolver) Close() {
-}
-
-func parseTarget(target string) (host, port, name string, err error) {
-	if target == "" {
-		return "", "", "", errMissingAddr
-	}
-
-	if !regexConsul.MatchString(target) {
-		return "", "", "", errAddrMisMatch
-	}
-
-	groups := regexConsul.FindStringSubmatch(target)
-	host = groups[1]
-	port = groups[2]
-	name = groups[3]
-	if port == "" {
-		port = defaultPort
-	}
-	return host, port, name, nil
 }
