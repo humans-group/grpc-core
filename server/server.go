@@ -53,6 +53,7 @@ func New(loader config.Loader, services ...Registerer) *Server {
 	}
 
 	loader.MustLoad("Server", &s.cfg)
+	s.cfg.withDefaults()
 	loader.MustLoad("Consul", &s.consulCfg)
 	s.consulCfg.Name = s.cfg.Name
 
