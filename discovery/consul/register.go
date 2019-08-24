@@ -33,7 +33,7 @@ func init() {
 }
 
 func RegisterService(cfg Config) {
-	grpclog.Infof("consul envs %v %v %v", env, ip, port)
+	grpclog.Infof("consul envs %s %s %s", env, ip, port)
 
 	consulConfig := api.DefaultConfig()
 	consulConfig.Address = cfg.Endpoint
@@ -61,6 +61,8 @@ func RegisterService(cfg Config) {
 			DeregisterCriticalServiceAfter: deregister.String(),
 		},
 	}
+
+	grpclog.Infof("reg request %+v", reg)
 
 	grpclog.Infof("registering to %v", cfg.Endpoint)
 	if err := agent.ServiceRegister(reg); err != nil {
