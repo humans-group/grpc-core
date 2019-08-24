@@ -64,7 +64,8 @@ func (cr *consulResolver) watcher() {
 	}
 
 	for {
-		services, metainfo, err := client.Health().Service(cr.name, cr.name, true, &api.QueryOptions{WaitIndex: cr.lastIndex})
+		grpclog.Infof("consul resolver %+v", *cr)
+		services, metainfo, err := client.Health().Service(cr.name, "", true, &api.QueryOptions{WaitIndex: cr.lastIndex})
 		if err != nil {
 			grpclog.Errorf("error retrieving instances from Consul: %v", err)
 			continue
