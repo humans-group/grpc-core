@@ -69,6 +69,7 @@ func (cr *consulResolver) watcher() {
 			grpclog.Errorf("error retrieving instances from Consul: %v", err)
 			continue
 		}
+		grpclog.Infof("consul resolver got services %+v and meta %+v", services, metainfo)
 
 		cr.lastIndex = metainfo.LastIndex
 		var newAddrs []resolver.Address
@@ -76,11 +77,11 @@ func (cr *consulResolver) watcher() {
 			addr := fmt.Sprintf("%v:%v", service.Service.Address, service.Service.Port)
 			newAddrs = append(newAddrs, resolver.Address{Addr: addr})
 		}
-		grpclog.Infof("new discovered addresses %+v", newAddrs)
+		grpclog.Infof("consul resolved discovered new addresses %+v", newAddrs)
 		cr.cc.UpdateState(resolver.State{
 			Addresses: newAddrs,
 		})
-		cr.cc.NewServiceConfig(cr.name)
+		//cr.cc.NewServiceConfig(cr.name)
 	}
 
 }
