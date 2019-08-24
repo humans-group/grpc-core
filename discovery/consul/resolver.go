@@ -42,8 +42,8 @@ func NewBuilder() resolver.Builder {
 
 func (cb *consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
 	cr := &consulResolver{
-		address:              target.Endpoint,
-		name:                 target.Authority,
+		address:              target.Authority,
+		name:                 target.Endpoint,
 		cc:                   cc,
 		disableServiceConfig: opts.DisableServiceConfig,
 		lastIndex:            0,
