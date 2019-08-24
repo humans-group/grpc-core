@@ -42,6 +42,7 @@ func NewBuilder() resolver.Builder {
 
 func (cb *consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
 	host, port, name, err := parseTarget(fmt.Sprintf("%s/%s", target.Authority, target.Endpoint))
+	grpclog.Infof("consul host %s port %s name %s target %+v", target)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +73,7 @@ func (cr *consulResolver) watcher() {
 		services, metainfo, err := client.Health().Service(cr.name, cr.name, true, &api.QueryOptions{WaitIndex: cr.lastIndex})
 		if err != nil {
 			grpclog.Errorf("error retrieving instances from Consul: %v", err)
+			continue
 		}
 
 		cr.lastIndex = metainfo.LastIndex
