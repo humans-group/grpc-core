@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/mkorolyov/core/discovery/consul"
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/net/netutil"
+	"google.golang.org/grpc/balancer/roundrobin"
+	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"log"
 	"net"
@@ -13,6 +17,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -52,10 +57,13 @@ func New(loader config.Loader, services ...Registerer) *Server {
 		log:      logger.Init(loader),
 	}
 
+	grpc_zap.ReplaceGrpcLogger(s.log)
+
 	loader.MustLoad("Server", &s.cfg)
 	s.cfg.withDefaults()
 	loader.MustLoad("Consul", &s.consulCfg)
 	s.consulCfg.Name = s.cfg.Name
+	consul.RegisterResolver()
 
 	s.AddExitFunc(func(_ int) {
 		if err := s.log.Sync(); err != nil {
@@ -78,6 +86,34 @@ func New(loader config.Loader, services ...Registerer) *Server {
 	return s
 }
 
+func (s *Server) Connect(msName string) *grpc.ClientConn {
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	connOpts := []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.WithInsecure(),
+		grpc.WithBalancerName(roundrobin.Name),
+		grpc.WithChainUnaryInterceptor(
+			grpc_zap.UnaryClientInterceptor(s.log, []grpc_zap.Option{grpc_zap.WithLevels(codeToLevel)}...),
+			grpc_zap.PayloadUnaryClientInterceptor(s.log, s.clientPayloadLoggingDecider),
+			grpc_prometheus.UnaryClientInterceptor,
+			grpc_opentracing.UnaryClientInterceptor(grpc_opentracing.WithTracer(opentracing.GlobalTracer())),
+		),
+	}
+
+	target := fmt.Sprintf("consul://%s/%s", s.consulCfg.Endpoint, msName)
+	clientConn, err := grpc.DialContext(ctx, target, connOpts...)
+	if err != nil {
+		panic(fmt.Sprintf("failed to connect to %s: %v", target, err))
+	}
+	s.AddExitFunc(func(_ int) {
+		if err := clientConn.Close(); err != nil {
+			grpclog.Errorf("failed to close client conn to %s: %v", msName, err)
+		}
+	})
+	return clientConn
+}
+
 func (s *Server) Serve(ctx context.Context) {
 	var cancelFunc func()
 	s.ctx, cancelFunc = context.WithCancel(ctx)
@@ -87,27 +123,26 @@ func (s *Server) Serve(ctx context.Context) {
 	if err != nil {
 		s.log.Sugar().Panicf("failed to connect to %s: %v", s.cfg.Endpoint, err)
 	}
+	// limit concurrent requests, 10k for now
+	l = netutil.LimitListener(l, 10000)
 
 	connMultiplexer := cmux.New(l)
 	grpcL := connMultiplexer.Match(cmux.HTTP2())
 	httpL := connMultiplexer.Match(cmux.HTTP1Fast())
 
-	grpc_zap.ReplaceGrpcLogger(s.log)
-
 	// grpc
 	grpcS := grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_zap.UnaryServerInterceptor(s.log, []grpc_zap.Option{
-				grpc_zap.WithLevels(codeToLevel),
-			}...),
-			grpc_zap.PayloadUnaryServerInterceptor(s.log, s.payloadLoggingDecider),
-			grpc_opentracing.UnaryServerInterceptor(),
+			grpc_zap.UnaryServerInterceptor(s.log, []grpc_zap.Option{grpc_zap.WithLevels(codeToLevel)}...),
+			grpc_zap.PayloadUnaryServerInterceptor(s.log, s.serverPayloadLoggingDecider),
+			grpc_opentracing.UnaryServerInterceptor(grpc_opentracing.WithTracer(opentracing.GlobalTracer())),
 			grpc_prometheus.UnaryServerInterceptor,
 		),
 	)
 
 	grpc_prometheus.EnableHandlingTimeHistogram()
+	grpc_prometheus.EnableClientHandlingTimeHistogram()
 
 	s.grpcProxyMux = runtime.NewServeMux()
 	for _, se := range s.services {
@@ -202,6 +237,10 @@ func codeToLevel(code codes.Code) zapcore.Level {
 	}
 }
 
-func (s *Server) payloadLoggingDecider(ctx context.Context, fullMethodName string, servingObject interface{}) bool {
+func (s *Server) serverPayloadLoggingDecider(ctx context.Context, fullMethodName string, servingObject interface{}) bool {
+	return *s.cfg.LogPayloads
+}
+
+func (s *Server) clientPayloadLoggingDecider(ctx context.Context, fullMethodName string) bool {
 	return *s.cfg.LogPayloads
 }

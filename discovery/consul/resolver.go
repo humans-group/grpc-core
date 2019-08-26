@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/resolver"
 )
 
-func Init() {
+func RegisterResolver() {
 	resolver.Register(NewBuilder())
 }
 
