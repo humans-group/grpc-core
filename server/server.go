@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -49,12 +48,14 @@ type Server struct {
 	exitFunc     func(code int)
 	ctx          context.Context
 	log          *zap.Logger
+	httpHandlers map[string]http.HandlerFunc
 }
 
 func New(loader config.Loader, services ...Registerer) *Server {
 	s := &Server{
-		services: services,
-		log:      logger.Init(loader),
+		services:     services,
+		log:          logger.Init(loader),
+		httpHandlers: map[string]http.HandlerFunc{},
 	}
 
 	grpc_zap.ReplaceGrpcLogger(s.log)
@@ -143,6 +144,7 @@ func (s *Server) Serve(ctx context.Context) {
 
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpc_prometheus.EnableClientHandlingTimeHistogram()
+	s.HandleHTTP("/metrics", promhttp.Handler().ServeHTTP)
 
 	s.grpcProxyMux = runtime.NewServeMux()
 	for _, se := range s.services {
@@ -188,10 +190,16 @@ func (s *Server) Serve(ctx context.Context) {
 	s.log.Sugar().Info("microservice gracefully stopped")
 }
 
+func (s *Server) HandleHTTP(path string, h http.HandlerFunc) {
+	if _, ok := s.httpHandlers[path]; ok {
+		panic(fmt.Sprintf("http handler duplication for path %s", path))
+	}
+	s.httpHandlers[path] = h
+}
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	if strings.HasPrefix(path, "/metrics") {
-		promhttp.Handler().ServeHTTP(w, r)
+	if h, ok := s.httpHandlers[r.URL.Path]; ok {
+		h(w, r)
 		return
 	}
 
