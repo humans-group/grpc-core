@@ -1,4 +1,4 @@
-module github.com/mkorolyov/core
+module github.com/humans-net/grpc-core
 
 go 1.12
 

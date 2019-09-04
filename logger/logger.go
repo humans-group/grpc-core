@@ -2,7 +2,8 @@ package logger
 
 import (
 	"fmt"
-	"github.com/mkorolyov/core/config"
+
+	"github.com/humans-net/grpc-core/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

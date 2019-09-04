@@ -1,9 +1,9 @@
 package tracer
 
 import (
-	"github.com/mkorolyov/core/config"
 	"io"
 
+	"github.com/humans-net/grpc-core/config"
 	"github.com/pkg/errors"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	jaeger_zap "github.com/uber/jaeger-client-go/log/zap"
